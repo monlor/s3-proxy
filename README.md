@@ -1,6 +1,9 @@
 ## Why
 
-For Apple Shotcuts or MWeb APP
+For Apple Shotcuts or MWeb APP or Bash scripts
+
+### Apple Shotcuts
+https://www.icloud.com/shortcuts/936ea0c7a9404a0ebf0cbabf9d522149
 
 ## How to use
 
