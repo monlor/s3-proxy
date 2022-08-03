@@ -3,17 +3,18 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"mime/multipart"
+	"net/http"
+	"os"
+	"path"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gin-gonic/gin"
-	"mime/multipart"
-	"net/http"
-	"os"
-	"path"
-	"time"
 )
 
 var (
@@ -44,7 +45,6 @@ func setupRouter() *gin.Engine {
 	}))
 
 	authorized.POST("upload", func(c *gin.Context) {
-		fmt.Println("upload")
 		file, err := c.FormFile("file")
 		dir, _ := c.GetQuery("dir")
 		if dir == "" {
@@ -54,7 +54,7 @@ func setupRouter() *gin.Engine {
 		p := path.Join(dir, file.Filename)
 		url, err := upload(*file, p)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "err": err})
+			c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "err": err.Error()})
 		} else {
 			c.JSON(http.StatusOK, gin.H{"status": "ok", "url": url, "path": p})
 		}

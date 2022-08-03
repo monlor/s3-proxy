@@ -1,15 +1,14 @@
-FROM golang:1.19.0 as builder
+FROM golang:alpine as build
+# Redundant, current golang images already include ca-certificates
+# ENV GOPROXY=https://goproxy.cn
+RUN apk --no-cache add ca-certificates
+WORKDIR /go/src/app
+COPY . .
+RUN go build -o s3-proxy
 
-#ENV GOPROXY=https://goproxy.cn
-
-COPY . /s3-proxy
-
-RUN cd /s3-proxy && go build -o s3-proxy
-
-FROM debian:buster-slim
-
+FROM alpine:latest
 ENV GIN_MODE=release
-
-COPY --from=builder /s3-proxy/s3-proxy /s3-proxy
-
-CMD ["/s3-proxy"]
+# copy the ca-certificate.crt from the build stage
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=build /go/src/app/s3-proxy /s3-proxy
+ENTRYPOINT ["/s3-proxy"]
