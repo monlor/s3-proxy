@@ -1,6 +1,6 @@
 FROM golang:1.19.0 as builder
 
-ENV GOPROXY=https://goproxy.cn
+#ENV GOPROXY=https://goproxy.cn
 
 COPY . /s3-proxy
 
