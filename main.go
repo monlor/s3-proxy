@@ -49,7 +49,7 @@ func setupRouter() *gin.Engine {
 		dir, _ := c.GetQuery("dir")
 		if dir == "" {
 			t := time.Now()
-			dir = fmt.Sprintf("%d/%d/%d", t.Year(), t.Month(), t.Day())
+			dir = fmt.Sprintf("/%d/%d/%d", t.Year(), t.Month(), t.Day())
 		}
 		p := path.Join(dir, file.Filename)
 		url, err := upload(*file, p)
