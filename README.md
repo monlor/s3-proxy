@@ -17,7 +17,7 @@ docker run -d
   -e HTTP_USERNAME=xxx
   -e HTTP_PASSWORD=xxx
   -p 8080:8080
-  monlor/s3-proxy
+  ghcr.io/monlor/s3-proxy:main
 ```
 
 ### Upload by curl
