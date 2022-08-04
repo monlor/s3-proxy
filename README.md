@@ -31,7 +31,7 @@ curl -X POST -u foo:bar -F file=@test.txt localhost:8080/upload
 
 ### Command line
 
-add environment variables
+#### add environment variables
 
 ```bash
 export S3_PROXY_URL=https://s3.xxx.com
@@ -41,11 +41,17 @@ export S3_PROXY_PASSWORD=xxx
 export S3_CDN_URL=xxx
 ```
 
-install s3-proxy
+#### install s3-proxy
 
 ```bash
 brew tap monlor/taps
 brew install monlor/taps/s3-proxy
+```
+
+#### Config 
+
+```bash
+s3-proxy
 ```
 
 ### Typora

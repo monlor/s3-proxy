@@ -1,9 +1,27 @@
 #!/bin/bash
 
-declare S3_PROXY_URL
-declare S3_PROXY_USERNAME
-declare S3_PROXY_PASSWORD
-declare S3_CDN_URL
+if [ ! -d ${HOME}/.config/s3-proxy ]; then
+  echo "====================================="
+  mkdir -p ${HOME}/.config/s3-proxy
+  read -p "Input s3 proxy url: " S3_PROXY_URL
+  [ -z "${S3_PROXY_URL}" ] && echo "can not be null!" && exit 1
+  read -p "Input s3 proxy username: " S3_PROXY_USERNAME
+  [ -z "${S3_PROXY_USERNAME}" ] && echo "can not be null!" && exit 1
+  read -p "Input s3 proxy password: " S3_PROXY_PASSWORD
+  [ -z "${S3_PROXY_PASSWORD}" ] && echo "can not be null!" && exit 1
+  read -p "Input s3 proxy cdn url (optional): " S3_CDN_URL
+  cat > ${HOME}/.config/s3-proxy/config <<-EOF
+S3_PROXY_URL=${S3_PROXY_URL}
+S3_PROXY_USERNAME=${S3_PROXY_USERNAME}
+S3_PROXY_PASSWORD=${S3_PROXY_PASSWORD}
+S3_CDN_URL=${S3_CDN_URL}
+EOF
+  echo "Config is already written to ${HOME}/.config/s3-proxy/config"
+  echo "Reset: rm -rf ${HOME}/.config/s3-proxy"
+  echo "====================================="
+fi
+
+source ${HOME}/.config/s3-proxy/config
 
 if [ -z "${S3_PROXY_URL}" -o -z "${S3_PROXY_USERNAME}" -o -z "${S3_PROXY_PASSWORD}" ]; then
   echo "S3_PROXY_URL or S3_PROXY_USERNAME or S3_PROXY_PASSWORD can not be null!"
