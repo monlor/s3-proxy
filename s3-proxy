@@ -10,10 +10,16 @@ if [ -z "${S3_PROXY_URL}" -o -z "${S3_PROXY_USERNAME}" -o -z "${S3_PROXY_PASSWOR
   exit 1
 fi
 
+if [ -z "${@}" ]; then
+  echo "Usage: $0 {pic1} {pic2} ..."
+  exit 1
+fi
+
+echo "Upload Success:"
+
 for pic in ${@}; do
   res=`curl -s -X POST -u ${S3_PROXY_USERNAME}:${S3_PROXY_PASSWORD} -F file=@${pic} ${S3_PROXY_URL}/upload`
   status=`echo ${res} | jq .status | sed -e 's/"//g'`
-  echo "Upload Success:"
   if [ "${status}" = "ok" ]; then
     url=`echo ${res} | jq .url | sed -e 's/"//g'`
     path=`echo ${res} | jq .path | sed -e 's/"//g'`
