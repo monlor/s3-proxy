@@ -10,7 +10,7 @@ if [ -z "${S3_PROXY_URL}" -o -z "${S3_PROXY_USERNAME}" -o -z "${S3_PROXY_PASSWOR
   exit 1
 fi
 
-if [ -z "${@}" ]; then
+if [ -z "${*}" ]; then
   echo "Usage: $0 {pic1} {pic2} ..."
   exit 1
 fi
