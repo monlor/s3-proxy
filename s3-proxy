@@ -1,0 +1,26 @@
+#!/bin/bash
+
+declare S3_PROXY_URL
+declare S3_PROXY_USERNAME
+declare S3_PROXY_PASSWORD
+declare S3_CDN_URL
+
+if [ -z "${S3_PROXY_URL}" -o -z "${S3_PROXY_USERNAME}" -o -z "${S3_PROXY_PASSWORD}" ]; then
+  echo "S3_PROXY_URL or S3_PROXY_USERNAME or S3_PROXY_PASSWORD can not be null!"
+  exit 1
+fi
+
+for pic in ${@}; do
+  res=`curl -s -X POST -u ${S3_PROXY_USERNAME}:${S3_PROXY_PASSWORD} -F file=@${pic} ${S3_PROXY_URL}/upload`
+  status=`echo ${res} | jq .status | sed -e 's/"//g'`
+  echo "Upload Success:"
+  if [ "${status}" = "ok" ]; then
+    url=`echo ${res} | jq .url | sed -e 's/"//g'`
+    path=`echo ${res} | jq .path | sed -e 's/"//g'`
+    if [ -n "${S3_CDN_URL}" ]; then
+      echo "${S3_CDN_URL}${path}"
+    else
+      echo ${url}
+    fi
+  fi
+done

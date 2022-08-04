@@ -28,3 +28,18 @@ docker run -d \
 ```bash
 curl -X POST -u foo:bar -F file=@test.txt localhost:8080/upload
 ```
+
+### Command line
+
+```bash
+brew tap monlor/taps
+brew install monlor/taps/s3-proxy
+```
+
+### Typora
+
+add custom command
+
+```bash
+s3-proxy
+```
