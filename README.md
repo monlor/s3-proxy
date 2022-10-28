@@ -17,6 +17,8 @@ docker run -d \
   -e S3_SECRET_KEY=xxx \
   -e S3_REGION=xxx \
   -e S3_BUCKET_NAME=xxx \
+  -e S3_ENDPOINT=xxx \
+  -e S3_URL_PREFIX=xxx \
   -e HTTP_USERNAME=xxx \
   -e HTTP_PASSWORD=xxx \
   -p 8080:8080 \

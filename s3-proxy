@@ -1,0 +1,50 @@
+#!/bin/bash
+
+if [ ! -d ${HOME}/.config/s3-proxy ]; then
+  echo "====================================="
+  mkdir -p ${HOME}/.config/s3-proxy
+  read -p "Input s3 proxy url: " S3_PROXY_URL
+  [ -z "${S3_PROXY_URL}" ] && echo "can not be null!" && exit 1
+  read -p "Input s3 proxy username: " S3_PROXY_USERNAME
+  [ -z "${S3_PROXY_USERNAME}" ] && echo "can not be null!" && exit 1
+  read -p "Input s3 proxy password: " S3_PROXY_PASSWORD
+  [ -z "${S3_PROXY_PASSWORD}" ] && echo "can not be null!" && exit 1
+  read -p "Input s3 proxy cdn url (optional): " S3_CDN_URL
+  cat > ${HOME}/.config/s3-proxy/config <<-EOF
+S3_PROXY_URL=${S3_PROXY_URL}
+S3_PROXY_USERNAME=${S3_PROXY_USERNAME}
+S3_PROXY_PASSWORD=${S3_PROXY_PASSWORD}
+S3_CDN_URL=${S3_CDN_URL}
+EOF
+  echo "Config is already written to ${HOME}/.config/s3-proxy/config"
+  echo "Reset: rm -rf ${HOME}/.config/s3-proxy"
+  echo "====================================="
+fi
+
+source ${HOME}/.config/s3-proxy/config
+
+if [ -z "${S3_PROXY_URL}" -o -z "${S3_PROXY_USERNAME}" -o -z "${S3_PROXY_PASSWORD}" ]; then
+  echo "S3_PROXY_URL or S3_PROXY_USERNAME or S3_PROXY_PASSWORD can not be null!"
+  exit 1
+fi
+
+if [ -z "${*}" ]; then
+  echo "Usage: $0 {pic1} {pic2} ..."
+  exit 1
+fi
+
+echo "Upload Success:"
+
+for pic in ${@}; do
+  res=`curl -s -X POST -u ${S3_PROXY_USERNAME}:${S3_PROXY_PASSWORD} -F file=@${pic} ${S3_PROXY_URL}/upload`
+  status=`echo ${res} | jq .status | sed -e 's/"//g'`
+  if [ "${status}" = "ok" ]; then
+    url=`echo ${res} | jq .url | sed -e 's/"//g'`
+    path=`echo ${res} | jq .path | sed -e 's/"//g'`
+    if [ -n "${S3_CDN_URL}" ]; then
+      echo "${S3_CDN_URL}${path}"
+    else
+      echo ${url}
+    fi
+  fi
+done
