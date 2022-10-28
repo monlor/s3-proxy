@@ -51,12 +51,13 @@ func setupRouter() *gin.Engine {
 			t := time.Now()
 			dir = fmt.Sprintf("%d/%d/%d", t.Year(), t.Month(), t.Day())
 		}
-		p := path.Join(dir, file.Filename)
-		url, err := upload(*file, p)
+		relativePath := path.Join(dir, file.Filename)
+		absolutePath := fmt.Sprintf("/%s", relativePath)
+		url, err := upload(*file, relativePath) 
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "err": err.Error()})
 		} else {
-			c.JSON(http.StatusOK, gin.H{"status": "ok", "url": url, "path": p})
+			c.JSON(http.StatusOK, gin.H{"status": "ok", "url": url, "path": absolutePath})
 		}
 	})
 
