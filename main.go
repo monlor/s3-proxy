@@ -1,20 +1,18 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"fmt"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gin-gonic/gin"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 var (
@@ -24,6 +22,8 @@ var (
 	awsSecretAccessKey = os.Getenv("S3_SECRET_KEY")
 	awsBucketRegion    = os.Getenv("S3_REGION")
 	awsBucketName      = os.Getenv("S3_BUCKET_NAME")
+	awsEndpoint        = os.Getenv("S3_ENDPOINT")
+	awsUrlPrefix		   = os.Getenv("S3_URL_PREFIX")
 	httpUserName       = os.Getenv("HTTP_USERNAME")
 	httpPassWord       = os.Getenv("HTTP_PASSWORD")
 )
@@ -49,7 +49,7 @@ func setupRouter() *gin.Engine {
 		dir, _ := c.GetQuery("dir")
 		if dir == "" {
 			t := time.Now()
-			dir = fmt.Sprintf("/%d/%d/%d", t.Year(), t.Month(), t.Day())
+			dir = fmt.Sprintf("%d/%d/%d", t.Year(), t.Month(), t.Day())
 		}
 		p := path.Join(dir, file.Filename)
 		url, err := upload(*file, p)
@@ -66,123 +66,58 @@ func setupRouter() *gin.Engine {
 func main() {
 	r := setupRouter()
 	// Listen and Server in 0.0.0.0:8080
-	r.Run(":8080")
+	r.Run(":8081")
 }
 
 func upload(file multipart.FileHeader, path string) (string, error) {
-	creds := credentials.NewStaticCredentials(awsAccessKeyID, awsSecretAccessKey, "")
-	_, err := creds.Get()
-	if err != nil {
-		return "", err
-	}
-	cfg := aws.NewConfig().WithRegion(awsBucketRegion).WithCredentials(creds)
-	svc := s3.New(session.New(), cfg)
+	ctx := context.Background()
+	endpoint := awsEndpoint
+	accessKeyID := awsAccessKeyID
+	secretAccessKey := awsSecretAccessKey
+	useSSL := true
 
-	size := file.Size
-	buffer := make([]byte, size)
-	fileType := http.DetectContentType(buffer)
-	f, _ := file.Open()
+	fileSize := file.Size
+	f, err := file.Open()
+	if err != nil {
+		log.Fatalln(err)
+	}
 	defer f.Close()
-	f.Read(buffer)
 
-	input := &s3.CreateMultipartUploadInput{
-		Bucket:      aws.String(awsBucketName),
-		Key:         aws.String(path),
-		ContentType: aws.String(fileType),
-	}
-
-	resp, err := svc.CreateMultipartUpload(input)
+	// Initialize minio client object.
+	minioClient, err := minio.New(endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure: useSSL,
+	})
 	if err != nil {
-		fmt.Println(err.Error())
-		return "", err
-	}
-	fmt.Println("Created multipart upload request")
-
-	var curr, partLength int64
-	var remaining = size
-	var completedParts []*s3.CompletedPart
-	partNumber := 1
-	for curr = 0; remaining != 0; curr += partLength {
-		if remaining < maxPartSize {
-			partLength = remaining
-		} else {
-			partLength = maxPartSize
-		}
-		completedPart, err := uploadPart(svc, resp, buffer[curr:curr+partLength], partNumber)
-		if err != nil {
-			fmt.Println(err.Error())
-			err := abortMultipartUpload(svc, resp)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			return "", err
-		}
-		remaining -= partLength
-		partNumber++
-		completedParts = append(completedParts, completedPart)
+		log.Fatalln(err)
 	}
 
-	completeResponse, err := completeMultipartUpload(svc, resp, completedParts)
+	// Make a new bucket called mymusic.
+	bucketName := awsBucketName
+	location := awsBucketRegion
+
+	err = minioClient.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{Region: location})
 	if err != nil {
-		fmt.Println(err.Error())
-		return "", err
-	}
-
-	return *completeResponse.Location, nil
-}
-
-func completeMultipartUpload(svc *s3.S3, resp *s3.CreateMultipartUploadOutput, completedParts []*s3.CompletedPart) (*s3.CompleteMultipartUploadOutput, error) {
-	completeInput := &s3.CompleteMultipartUploadInput{
-		Bucket:   resp.Bucket,
-		Key:      resp.Key,
-		UploadId: resp.UploadId,
-		MultipartUpload: &s3.CompletedMultipartUpload{
-			Parts: completedParts,
-		},
-	}
-	return svc.CompleteMultipartUpload(completeInput)
-}
-
-func uploadPart(svc *s3.S3, resp *s3.CreateMultipartUploadOutput, fileBytes []byte, partNumber int) (*s3.CompletedPart, error) {
-	tryNum := 1
-	partInput := &s3.UploadPartInput{
-		Body:          bytes.NewReader(fileBytes),
-		Bucket:        resp.Bucket,
-		Key:           resp.Key,
-		PartNumber:    aws.Int64(int64(partNumber)),
-		UploadId:      resp.UploadId,
-		ContentLength: aws.Int64(int64(len(fileBytes))),
-	}
-
-	for tryNum <= maxRetries {
-		uploadResult, err := svc.UploadPart(partInput)
-		if err != nil {
-			if tryNum == maxRetries {
-				if aerr, ok := err.(awserr.Error); ok {
-					return nil, aerr
-				}
-				return nil, err
-			}
-			fmt.Printf("Retrying to upload part #%v\n", partNumber)
-			tryNum++
+		// Check to see if we already own this bucket (which happens if you run this twice)
+		exists, errBucketExists := minioClient.BucketExists(ctx, bucketName)
+		if errBucketExists == nil && exists {
+			log.Printf("We already own %s\n", bucketName)
 		} else {
-			fmt.Printf("Uploaded part #%v\n", partNumber)
-			return &s3.CompletedPart{
-				ETag:       uploadResult.ETag,
-				PartNumber: aws.Int64(int64(partNumber)),
-			}, nil
+			log.Fatalln(err)
 		}
+	} else {
+		log.Printf("Successfully created %s\n", bucketName)
 	}
-	return nil, nil
-}
 
-func abortMultipartUpload(svc *s3.S3, resp *s3.CreateMultipartUploadOutput) error {
-	fmt.Println("Aborting multipart upload for UploadId#" + *resp.UploadId)
-	abortInput := &s3.AbortMultipartUploadInput{
-		Bucket:   resp.Bucket,
-		Key:      resp.Key,
-		UploadId: resp.UploadId,
+	contentType := "application/octet-stream"
+
+	// Upload the file with FPutObject
+	info, err := minioClient.PutObject(ctx, bucketName, path, f, fileSize, minio.PutObjectOptions{ContentType: contentType})
+	if err != nil {
+		log.Fatalln(err)
 	}
-	_, err := svc.AbortMultipartUpload(abortInput)
-	return err
+
+	log.Printf("Successfully uploaded %s of size %d\n", path, info.Size)
+	publicUrl := fmt.Sprintf("%s/%s", awsUrlPrefix, path)
+	return publicUrl, nil
 }

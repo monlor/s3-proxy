@@ -8,6 +8,7 @@ RUN go build -o s3-proxy
 
 FROM alpine:latest
 ENV GIN_MODE=release
+EXPOSE 8081
 # copy the ca-certificate.crt from the build stage
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /go/src/app/s3-proxy /s3-proxy
