@@ -110,7 +110,10 @@ func upload(file multipart.FileHeader, path string) (string, error) {
 		log.Printf("Successfully created %s\n", bucketName)
 	}
 
-	contentType := "application/octet-stream"
+	contentType, err := GetFileContentType(f)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	// Upload the file with FPutObject
 	info, err := minioClient.PutObject(ctx, bucketName, path, f, fileSize, minio.PutObjectOptions{ContentType: contentType})
@@ -121,4 +124,23 @@ func upload(file multipart.FileHeader, path string) (string, error) {
 	log.Printf("Successfully uploaded %s of size %d\n", path, info.Size)
 	publicUrl := fmt.Sprintf("%s/%s", awsUrlPrefix, path)
 	return publicUrl, nil
+}
+
+func GetFileContentType(file multipart.File) (string, error) {
+
+    // Only the first 512 bytes are used to sniff the content type.
+    buffer := make([]byte, 512)
+
+    _, err := file.Read(buffer)
+    if err != nil {
+        return "", err
+    }
+
+    // Use the net/http package's handy DectectContentType function. Always returns a valid
+    // content-type by returning "application/octet-stream" if no others seemed to match.
+    contentType := http.DetectContentType(buffer)
+
+		file.Seek(0, 0)
+
+    return contentType, nil
 }
