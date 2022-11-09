@@ -1,10 +1,10 @@
-FROM golang:alpine as build
+FROM --platform=$BUILDPLATFORM golang:alpine as build
 # Redundant, current golang images already include ca-certificates
 # ENV GOPROXY=https://goproxy.cn
 RUN apk --no-cache add ca-certificates
 WORKDIR /go/src/app
 COPY . .
-RUN go build -o s3-proxy
+RUN GOOS=linux GOARCH=$TARGETARCH go build -o s3-proxy
 
 FROM alpine:latest
 ENV GIN_MODE=release
