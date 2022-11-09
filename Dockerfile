@@ -1,6 +1,7 @@
 FROM --platform=$BUILDPLATFORM golang:alpine as build
 # Redundant, current golang images already include ca-certificates
 # ENV GOPROXY=https://goproxy.cn
+ARG TARGETARCH
 RUN apk --no-cache add ca-certificates
 WORKDIR /go/src/app
 COPY . .
