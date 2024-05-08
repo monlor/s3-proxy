@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"net/url"
 )
 
 var (
@@ -23,7 +24,7 @@ var (
 	awsBucketRegion    = os.Getenv("S3_REGION")
 	awsBucketName      = os.Getenv("S3_BUCKET_NAME")
 	awsEndpoint        = os.Getenv("S3_ENDPOINT")
-	awsUrlPrefix		   = os.Getenv("S3_URL_PREFIX")
+	awsUrlPrefix	   = os.Getenv("S3_URL_PREFIX")
 	httpUserName       = os.Getenv("HTTP_USERNAME")
 	httpPassWord       = os.Getenv("HTTP_PASSWORD")
 )
@@ -52,12 +53,14 @@ func setupRouter() *gin.Engine {
 			dir = fmt.Sprintf("%d/%d/%d", t.Year(), t.Month(), t.Day())
 		}
 		relativePath := path.Join(dir, file.Filename)
-		absolutePath := fmt.Sprintf("/%s", relativePath)
-		url, err := upload(*file, relativePath) 
+		err = upload(*file, relativePath) 
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "err": err.Error()})
 		} else {
-			c.JSON(http.StatusOK, gin.H{"status": "ok", "url": url, "path": absolutePath})
+			encoded_filename := url.QueryEscape(file.Filename)
+			absolutePath := fmt.Sprintf("/%s", path.Join(dir, encoded_filename))
+			u := fmt.Sprintf("%s%s", awsUrlPrefix, absolutePath)
+			c.JSON(http.StatusOK, gin.H{"status": "ok", "url": u, "path": absolutePath})
 		}
 	})
 
@@ -70,7 +73,7 @@ func main() {
 	r.Run(":8081")
 }
 
-func upload(file multipart.FileHeader, path string) (string, error) {
+func upload(file multipart.FileHeader, relativePath string) (error) {
 	ctx := context.Background()
 	endpoint := awsEndpoint
 	accessKeyID := awsAccessKeyID
@@ -80,7 +83,7 @@ func upload(file multipart.FileHeader, path string) (string, error) {
 	fileSize := file.Size
 	f, err := file.Open()
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 	defer f.Close()
 
@@ -90,7 +93,7 @@ func upload(file multipart.FileHeader, path string) (string, error) {
 		Secure: useSSL,
 	})
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 
 	// Make a new bucket called mymusic.
@@ -104,7 +107,7 @@ func upload(file multipart.FileHeader, path string) (string, error) {
 		if errBucketExists == nil && exists {
 			log.Printf("We already own %s\n", bucketName)
 		} else {
-			log.Fatalln(err)
+			return err
 		}
 	} else {
 		log.Printf("Successfully created %s\n", bucketName)
@@ -112,18 +115,17 @@ func upload(file multipart.FileHeader, path string) (string, error) {
 
 	contentType, err := GetFileContentType(f)
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 
 	// Upload the file with FPutObject
-	info, err := minioClient.PutObject(ctx, bucketName, path, f, fileSize, minio.PutObjectOptions{ContentType: contentType})
+	info, err := minioClient.PutObject(ctx, bucketName, relativePath, f, fileSize, minio.PutObjectOptions{ContentType: contentType})
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 
-	log.Printf("Successfully uploaded %s of size %d\n", path, info.Size)
-	publicUrl := fmt.Sprintf("%s/%s", awsUrlPrefix, path)
-	return publicUrl, nil
+	log.Printf("Successfully uploaded %s of size %d\n", relativePath, info.Size)
+	return nil
 }
 
 func GetFileContentType(file multipart.File) (string, error) {
