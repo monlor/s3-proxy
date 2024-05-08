@@ -57,7 +57,7 @@ func setupRouter() *gin.Engine {
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "err": err.Error()})
 		} else {
-			encoded_filename := url.QueryEscape(file.Filename)
+			encoded_filename := url.PathEscape(file.Filename)
 			absolutePath := fmt.Sprintf("/%s", path.Join(dir, encoded_filename))
 			u := fmt.Sprintf("%s%s", awsUrlPrefix, absolutePath)
 			c.JSON(http.StatusOK, gin.H{"status": "ok", "url": u, "path": absolutePath})
